@@ -1,7 +1,11 @@
 #!/usr/bin/haserl
-<%in p/common.cgi %>
+<%in _common.cgi %>
 <%
 page_title="Motors"
+
+if [ ! -f /bin/motors ]; then
+	redirect_to "/" "danger" "Your camera does not seem to support motors"
+fi
 
 # Defaults
 gpio_motor_h=$(get gpio_motor_h)
@@ -81,7 +85,7 @@ if [ "POST" = "$REQUEST_METHOD" ]; then
 	fi
 fi
 %>
-<%in p/header.cgi %>
+<%in _header.cgi %>
 
 <form action="<%= $SCRIPT_NAME %>" method="post">
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4">
@@ -144,7 +148,7 @@ function checkHoming() {
 }
 
 function readMotors() {
-	fetch("/x/j/motor.cgi?d=j")
+	fetch("/x/json-motor.cgi?d=j")
 		.then(res => res.json())
 		.then(({xpos, ypos}) => {
 			$('#motor_pos_0_x').value = xpos;
@@ -163,4 +167,4 @@ $('#disable_homing').addEventListener('change', checkHoming);
 checkHoming();
 </script>
 
-<%in p/footer.cgi %>
+<%in _footer.cgi %>

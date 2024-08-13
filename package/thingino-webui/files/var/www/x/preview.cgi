@@ -1,95 +1,82 @@
 #!/usr/bin/haserl
-<%in p/common.cgi %>
-<%in p/icons.cgi %>
+<%in _common.cgi %>
+<%in _icons.cgi %>
 <%
 token="$(cat /run/prudynt_websocket_token)"
 page_title="Camera preview"
-rtsp_address=$network_address
-rtsp_username="$(sed -En '/^rtsp:/n/username:/{s/^.+username:\s\"(.+)";/\1/p}' /etc/prudynt.cfg)"
-rtsp_password="$(sed -En '/^rtsp:/n/password:/{s/^.+password:\s\"(.+)";/\1/p}' /etc/prudynt.cfg)"
-#rtsp_port="$(sed -En '/^rtsp:/n/port:/{s/^.+port:\s(.+);/\1/p}' /etc/prudynt.cfg)"
-#[ "$rtsp_port" == "554" ] && rtsp_port="" || rtsp_port=":$rtsp_port"
-#rtsp_url="rtsp://${rtsp_username}:${rtsp_password}@${rtsp_address}${rtsp_port}/ch0"
-rtsp_url="rtsp://${rtsp_username}:${rtsp_password}@${rtsp_address}/ch0"
 
 for i in "ispmode"; do
 	eval "$i=\"$(/usr/sbin/imp-control $i)\""
 done
-
-check_flip() {
-	[ $flip -eq 2 ] || [ $flip -eq 3 ] && echo -n " checked"
-}
-
-check_mirror() {
-	[ $flip -eq 1 ] || [ $flip -eq 3 ] && echo -n " checked"
-}
 %>
-<%in p/header.cgi %>
+<%in _header.cgi %>
 
 <div class="row preview">
-	<div class="col-12 mb-3">
-		<div id="frame" class="position-relative mb-2">
-			<div class="smpte">
-				<div class="bar1"></div>
-				<div class="bar2"></div>
-				<div class="bar3"></div>
-			</div>
+	<div class="col-lg-9 mb-3">
+		<div id="frame" class="position-relative ratio ratio-16x9 mb-2">
+			<div class="smpte"><div class="bar1"></div><div class="bar2"></div><div class="bar3"></div></div>
 			<img id="preview" class="img-fluid" alt="Image: Preview"></img>
-			<%in p/motors.cgi %>
-			<div id="controls" class="position-absolute bottom-0 start-0 end-0">
-				<div class="buttons btn-group d-flex" role="group" aria-label="Night Mode">
-					<input type="checkbox" class="btn-check" name="daynight" id="daynight" value="1"<% checked_if $daynight 1 %>>
-					<label class="btn btn-dark" for="daynight" title="Night mode"><%= $icon_moon %></label>
-					<input type="checkbox" class="btn-check" name="ispmode" id="ispmode" value="1"<% checked_if $ispmode 1 %>>
-					<label class="btn btn-sm btn-dark" for="ispmode" title="Color mode"><%= $icon_color %></label>
-					<input type="checkbox" class="btn-check" name="ircut" id="ircut" value="1"<% checked_if $ircut 1 %><% get gpio_ircut >/dev/null || echo " disabled" %>>
-					<label class="btn btn-sm btn-dark" for="ircut" title="IR filter"><%= $icon_ircut %></label>
-					<input type="checkbox" class="btn-check" name="ir850" id="ir850" value="1"<% checked_if $ir850 1 %><% get gpio_ir850 >/dev/null || echo " disabled" %>>
-					<label class="btn btn-sm btn-dark" for="ir850" title="IR LED 850 nm"><%= $icon_ir850 %></label>
-					<input type="checkbox" class="btn-check" name="ir940" id="ir940" value="1"<% checked_if $ir940 1 %><% get gpio_ir940 >/dev/null || echo " disabled" %>>
-					<label class="btn btn-sm btn-dark" for="ir940" title="IR LED 940 nm"><%= $icon_ir940 %></label>
-					<input type="checkbox" class="btn-check" name="white" id="white" value="1"<% checked_if $white 1 %><% get gpio_white >/dev/null || echo " disabled" %>>
-					<label class="btn btn-sm btn-dark" for="white" title="White LED"><%= $icon_white %></label>
-					<input type="checkbox" class="btn-check" name="flip" id="flip" value="1"<% check_flip %>>
-					<label class="btn btn-sm btn-dark" for="flip" title="Flip vertically"><%= $icon_flip %></label>
-					<input type="checkbox" class="btn-check" name="mirror" id="mirror" value="1"<% check_mirror %>>
-					<label class="btn btn-sm btn-dark" for="mirror" title="Flip horizontally"><%= $icon_flop %></label>
-				</div>
-			</div>
+			<%in _motors.cgi %>
 		</div>
-		<p class="small text-body-secondary">The image above refreshes at a rate of about <span id="frame_rate"></span> frames per second and may appear choppy.
-			Use an RTSP media player instead, e.g. <span class="text-white">mpv --profile=low-latency <%= $rtsp_url %></span>.
-			<br>Move the cursor over the center of the preview image to reveal the motor controls. Use a single click for precise positioning, double click for coarse, long-distance movement.
+		<p class="small text-body-secondary"><span id="playrtsp"></span>
+<% if [ "true" = "$has_motors" ]; then %>
+			Move the cursor over the center of the preview image to reveal the motor controls.<br>
+			Use a single click for precise positioning, double click for coarse, long-distance movement.
+<% fi %>
 		</p>
 	</div>
-	<div class="col-12">
-		<div class="d-flex flex-column flex-lg-row gap-2 mb-3">
-			<a href="image.cgi" target="_blank" class="form-control btn btn-primary text-start">Save image</a>
-			<div class="input-group">
+	<div class="col-lg-1" style="width:4em">
+		<div class="btn-group-xl-vertical" role="group" aria-label="Day/Night controls">
+			<input type="checkbox" class="btn-check" name="daynight" id="daynight" value="1"<% checked_if $daynight 1 %>>
+			<label class="btn btn-dark border mb-2" for="daynight" title="Night mode"><%= $icon_moon %></label>
+			<input type="checkbox" class="btn-check" name="ispmode" id="ispmode" value="1"<% checked_if $ispmode 1 %>>
+			<label class="btn btn-dark border mb-2" for="ispmode" title="Color mode"><%= $icon_color %></label>
+			<input type="checkbox" class="btn-check" name="ircut" id="ircut" value="1"<% checked_if $ircut 1 %><% get gpio_ircut >/dev/null || echo " disabled" %>>
+			<label class="btn btn-dark border mb-2" for="ircut" title="IR filter"><%= $icon_ircut %></label>
+			<input type="checkbox" class="btn-check" name="ir850" id="ir850" value="1"<% checked_if $ir850 1 %><% get gpio_ir850 >/dev/null || echo " disabled" %>>
+			<label class="btn btn-dark border mb-2" for="ir850" title="IR LED 850 nm"><%= $icon_ir850 %></label>
+			<input type="checkbox" class="btn-check" name="ir940" id="ir940" value="1"<% checked_if $ir940 1 %><% get gpio_ir940 >/dev/null || echo " disabled" %>>
+			<label class="btn btn-dark border mb-2" for="ir940" title="IR LED 940 nm"><%= $icon_ir940 %></label>
+			<input type="checkbox" class="btn-check" name="white" id="white" value="1"<% checked_if $white 1 %><% get gpio_white >/dev/null || echo " disabled" %>>
+			<label class="btn btn-dark border mb-2" for="white" title="White LED"><%= $icon_white %></label>
+			<input type="checkbox" class="btn-check" name="vflip" id="vflip" value="1">
+			<label class="btn btn-dark border mb-2" for="vflip" title="Flip vertically"><%= $icon_flip %></label>
+			<input type="checkbox" class="btn-check" name="hflip" id="hflip" value="1">
+			<label class="btn btn-dark border mb-2" for="hflip" title="Flip horizontally"><%= $icon_flop %></label>
+		</div>
+	</div>
+	<div class="col-lg-2">
+		<div class="gap-2">
+			<div class="mb-1">
+				<a href="image.cgi" target="_blank" class="form-control btn btn-primary text-start">Save image</a>
+			</div>
+			<div class="input-group mb-1">
 				<button class="form-control btn btn-primary text-start" type="button" data-sendto="email">Email</button>
 				<div class="input-group-text"><a href="plugin-send2email.cgi" title="Email settings"><%= $icon_gear %></a></div>
 			</div>
-			<div class="input-group">
+			<div class="input-group mb-1">
 				<button class="form-control btn btn-primary text-start" type="button" data-sendto="ftp">FTP</button>
 				<div class="input-group-text"><a href="plugin-send2ftp.cgi" title="FTP Storage settings"><%= $icon_gear %></a></div>
 			</div>
-			<div class="input-group">
+			<div class="input-group mb-1">
 				<button class="form-control btn btn-primary text-start" type="button" data-sendto="telegram">Telegram</button>
 				<div class="input-group-text"><a href="plugin-send2telegram.cgi" title="Telegram bot settings"><%= $icon_gear %></a></div>
 			</div>
-			<div class="input-group">
+			<div class="input-group mb-1">
 				<button class="form-control btn btn-primary text-start" type="button" data-sendto="mqtt">MQTT</button>
 				<div class="input-group-text"><a href="plugin-send2mqtt.cgi" title="MQTT settings"><%= $icon_gear %></a></div>
 			</div>
-			<div class="input-group">
+			<div class="input-group mb-1">
 				<button class="form-control btn btn-primary text-start" type="button" data-sendto="webhook">WebHook</button>
 				<div class="input-group-text"><a href="plugin-send2webhook.cgi" title="Webhook settings"><%= $icon_gear %></a></div>
 			</div>
-			<div class="input-group">
+			<div class="input-group mb-1">
 				<button class="form-control btn btn-primary text-start" type="button" data-sendto="yadisk">Yandex Disk</button>
 				<div class="input-group-text"><a href="plugin-send2yadisk.cgi" title="Yandex Disk bot settings"><%= $icon_gear %></a></div>
 			</div>
+<% if [ "$debug" -gt 3 ]; then %>
 			<button id="zonemapper" class="form-control btn btn-secondary" type="button">Zone Mapper</button>
+<% fi %>
 		</div>
 	</div>
 </div>
@@ -114,21 +101,40 @@ $$("button[data-sendto]").forEach(el => {
 	});
 });
 
-function capture() { ws.send('{"action":{"capture":null}}'); }
 let last_frame_ts = null;
 
+function updatePreview(data) {
+	const blob = new Blob([data], {type: 'image/jpeg'});
+	const url = URL.createObjectURL(blob);
+	jpg.src = url;
+}
+
 const jpg = $("#preview");
-const ws_url = 'ws://' + document.location.hostname + ':8089?token=<%= $token %>';
-let ws = new WebSocket(ws_url);
-ws.binaryType = 'arraybuffer';
-ws.onopen  = () => capture();
-ws.onclose = () => console.log('WebSocket connection closed');
-ws.onerror = (error) => console.error('WebSocket error', error);
+
+let ws = new WebSocket('ws://' + document.location.hostname + ':8089?token=<%= $token %>');
+ws.onopen = () => {
+	console.log('WebSocket connection opened');
+	ws.send('{"image":{"hflip":null,"vflip":null},"rtsp":{"username":null,"password":null,"port":null}}');
+}
+ws.onclose = () => { console.log('WebSocket connection closed'); }
+ws.onerror = (error) => { console.error('WebSocket error', error); }
 ws.onmessage = (event) => {
 	if (typeof event.data === 'string') {
+		console.log(event.data);
+
 		const msg = JSON.parse(event.data);
 		const time = new Date(msg.date);
 		const timeStr = time.toLocaleTimeString();
+
+		if (msg.image.hflip) $('#hflip').checked = msg.image.hflip;
+		if (msg.image.vflip) $('#vflip').checked = msg.image.vflip;
+
+		if (msg.rtsp)
+			if (msg.rtsp.username && msg.rtsp.password && msg.rtsp.port)
+				$('#playrtsp').innerHTML = "RTSP player mpv --profile=low-latency rtsp://" +
+					msg.rtsp.username + ":" + msg.rtsp.password + "@" +
+					document.location.hostname + ":" + msg.rtsp.port + "/ch0";
+
 	} else if (event.data instanceof ArrayBuffer) {
 		const now = Date.now();
 		if (last_frame_ts != null) {
@@ -136,12 +142,15 @@ ws.onmessage = (event) => {
 			$("#frame_rate").innerText = frame_rate;
 		}
 		last_frame_ts = now;
-		const blob = new Blob([event.data], {type: 'image/jpeg'});
-		const url = URL.createObjectURL(blob);
-		jpg.src = url;
-		capture();
+
+		updatePreview(event.data);
 	}
+	ws.binaryType = 'arraybuffer';
+	ws.send('{"action":{"capture":null}}');
 }
+
+$('#hflip').addEventListener('change', ev => ws.send('{"image":{"hflip":' + ev.target.checked + '},"action":{"save_config":null}}'));
+$('#vflip').addEventListener('change', ev => ws.send('{"image":{"vflip":' + ev.target.checked + '},"action":{"save_config":null}}'));
 
 $("#daynight")?.addEventListener("change", ev => {
 	if (ev.target.checked) {
@@ -156,147 +165,6 @@ $("#daynight")?.addEventListener("change", ev => {
 		mode = "day";
 	}
 });
-
-/* ZONE MAPPER */
-
-let rois = [
-	[0,0,50,50],
-	[300,300,100,100]
-];
-
-function reorderCoords(ar) {
-	let numArray = new Float64Array(ar);
-	return numArray.sort();
-}
-
-function normalizeZone(x, y, w, h) {
-	if (w < 0) {
-		w = -(w);
-		x = x - w;
-	}
-	if (h < 0) {
-		h = -(h);
-		y = y - h;
-	}
-	return [x,y,w,h];
-}
-
-function enableZoneMapper() {
-	MinZoneHeight = 30;
-	MinZoneWidth = 30;
-	let mode = 'draw';
-
-	function loadZones() {
-	    rois.forEach(z => {
-		ctx.fillRect(z[0], z[1], z[2], z[3]);
-	    });
-	}
-
-	function resetZones() {
-		ctx.reset();
-		loadZones();
-	}
-
-	let sx = 0;
-	let sy = 0;
-
-	const frame = $('#frame');
-	const fw = frame.clientWidth;
-	const fh = frame.clientHeight;
-
-	const cv = document.createElement('canvas');
-	cv.width = fw;
-	cv.height = fh;
-	cv.id = 'roi';
-	cv.classList.add('position-absolute', 'top-0');
-	frame.append(cv);
-
-	const bound = cv.getBoundingClientRect();
-	const bl = bound.left;
-	const bt = bound.top;
-	const ccl = cv.clientLeft;
-	const cct = cv.clientTop;
-
-        const ctx = cv.getContext('2d');
-        resetZones();
-
-	cv.addEventListener('mousedown', ev => {
-		const x = Math.ceil(ev.clientX - bl - ccl);
-		const y = Math.ceil(ev.clientY - bt - cct);
-		console.log("Mouse button pressed at (" + x + "," + y + ")");
-
-		if (ev.shiftKey) {
-			console.log("Shift key is pressed");
-			let index = 0;
-			rois.forEach(z => {
-				console.log("Zone " + index + " " + z);
-				if (x > z[0] && x < (z[0] + z[2]) && y > z[1] && x < (z[1] + z[3])) {
-					console.log("Click is within this zone!");
-					rois.splice(index, 1);
-					resetZones();
-				}
-				index = index + 1;
-			});
-			return;
-		} else {
-			sx = x;
-			sy = y;
-		}
-		ev.preventDefault();
-	});
-
-	cv.addEventListener('mousemove', ev => {
-		if (ev.buttons != 1) return;
-		if (ev.shiftKey) return;
-
-		const w = Math.ceil(ev.clientX - bl - ccl - sx);
-		const h = Math.ceil(ev.clientY - bt - cct - sy);
-		resetZones();
-
-		if (Math.abs(w) < MinZoneWidth || Math.abs(h) < MinZoneHeight) {
-			ctx.strokeStyle = "red";
-		} else {
-			ctx.strokeStyle = "white";
-		}
-		ctx.lineWidth = 5;
-		ctx.rect(sx, sy, w, h);
-		ctx.stroke();
-	});
-
-	cv.addEventListener('mouseup', ev => {
-		if (ev.shiftKey) {
-			console.log("Shift key is pressed. Exiting.");
-			return;
-		}
-
-		const x = Math.ceil(ev.clientX - bl - ccl);
-		const y = Math.ceil(ev.clientY - bt - cct);
-		console.log("Mouse button released at (" + x + "," + y + ")");
-
-		const w = x - sx;
-		const h = y - sy;
-		console.log("Zone size: " + w + "x" + h);
-
-		if (Math.abs(w) < MinZoneWidth) {
-			console.log("Width is less than " + MinZoneWidth + "px");
-			resetZones();
-			return;
-		} else if (Math.abs(h) < MinZoneHeight) {
-			console.log("Height is less than " + MinZoneHeight + "px");
-			resetZones();
-			return;
-		} else {
-			resetZones();
-			ctx.fillStyle = "red";
-			ctx.fillRect(sx, sy, w, h);
-			rois.push(normalizeZone(sx, sy, w, h));
-		}
-	})
-}
-
-$('#zonemapper').addEventListener('click', () => {
-	enableZoneMapper();
-})
 </script>
 
 <style>
@@ -304,4 +172,4 @@ $('#zonemapper').addEventListener('click', () => {
 #controls:hover div.buttons { visibility: visible; }
 </style>
 
-<%in p/footer.cgi %>
+<%in _footer.cgi %>

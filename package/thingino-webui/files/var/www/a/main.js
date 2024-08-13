@@ -45,7 +45,7 @@ function xhrGet(url) {
 }
 
 function heartbeat() {
-	fetch('/x/j/heartbeat.cgi')
+	fetch('/x/json-heartbeat.cgi')
 		.then((response) => response.json())
 		.then((json) => {
 			if (json.time_now !== '') {
@@ -54,12 +54,12 @@ function heartbeat() {
 				$('#time-now').textContent = d.toLocaleString(navigator.language, options) + ' ' + json.timezone;
 			}
 
-			$('.progress-stacked.memory').title = 'Free memory: ' + json.mem_free + 'KiB'
+			$('.progress-stacked.memory').title = "Free memory: " + json.mem_free + "KiB"
 			setProgressBar('#pb-memory-active', json.mem_active, json.mem_total, 'Memory Active');
 			setProgressBar('#pb-memory-buffers', json.mem_buffers, json.mem_total, 'Memory Buffers');
 			setProgressBar('#pb-memory-cached', json.mem_cached, json.mem_total, 'Memory Cached');
 
-			$('.progress-stacked.overlay').title = 'Free overlay: ' + json.overlay_free + 'KiB'
+			$('.progress-stacked.overlay').title = "Free overlay: " + json.overlay_free + "KiB"
 			setProgressBar('#pb-overlay-used', json.overlay_used, json.overlay_total, 'Overlay Usage');
 
 			if (json.daynight_value !== '-1') {
@@ -172,7 +172,7 @@ function heartbeat() {
 			}
 
 			async function run() {
-				for await (let line of makeTextFileLineIterator('/x/j/run.cgi?cmd=' + btoa(el.dataset['cmd']))) {
+				for await (let line of makeTextFileLineIterator('/x/json-run.cgi?cmd=' + btoa(el.dataset['cmd']))) {
 					const re1 = /\u001b\[1;(\d+)m/;
 					const re2 = /\u001b\[0m/;
 					line = line.replace(re1, '<span class="ansi-$1">').replace(re2, '</span>')
@@ -183,7 +183,7 @@ function heartbeat() {
 			run()
 		}
 
-		heartbeat();
+//		heartbeat();
 	}
 
 	window.addEventListener('load', initAll);

@@ -1,5 +1,5 @@
 #!/usr/bin/haserl
-<%in p/common.cgi %>
+<%in _common.cgi %>
 <%
 page_title="Monitoring tools"
 tools_action="ping"
@@ -8,7 +8,7 @@ tools_interface="auto"
 tools_packet_size="56" # 56-1500 for ping, 38-32768 for trace
 tools_duration="5"
 %>
-<%in p/header.cgi %>
+<%in _header.cgi %>
 <div class="row g-4 mb-4">
 <div class="col col-md-4">
 <h3>Ping Quality</h3>
@@ -86,7 +86,7 @@ $('form').addEventListener('submit', event => {
 		}
 	}
 	async function run() {
-		for await (let line of makeTextFileLineIterator('/x/j/run.cgi?cmd=' + btoa(el.dataset['cmd']))) {
+		for await (let line of makeTextFileLineIterator('/x/json-run.cgi?cmd=' + btoa(el.dataset['cmd']))) {
 			const re1 = /\u001b\[1;(\d+)m/;
 			const re2 = /\u001b\[0m/;
 			line = line.replace(re1, '<span class="ansi-$1">').replace(re2, '</span>')
@@ -96,4 +96,4 @@ $('form').addEventListener('submit', event => {
 	run()
 });
 </script>
-<%in p/footer.cgi %>
+<%in _footer.cgi %>
