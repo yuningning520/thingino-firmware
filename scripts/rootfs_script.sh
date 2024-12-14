@@ -51,8 +51,8 @@ if [ -f "${TARGET_DIR}/lib/libconfig.so" ]; then
 	rm -vf ${TARGET_DIR}/lib/libconfig.so*
 fi
 
-if [ -f "${TARGET_DIR}/lib/libstdc++.so.6.0.33-gdb.py" ]; then
-	rm -vf ${TARGET_DIR}/lib/libstdc++.so.6.0.33-gdb.py
+if ls "${TARGET_DIR}/lib/libstdc++."* 1>/dev/null 2>&1; then
+	rm -vf ${TARGET_DIR}/lib/libstdc++.*
 fi
 
 if grep -q ^BR2_TOOLCHAIN_USES_MUSL $BR2_CONFIG; then

@@ -8,9 +8,9 @@ PRUDYNT_T_SITE_BRANCH = prudynt-t-old
 endif
 PRUDYNT_T_VERSION = $(shell git ls-remote $(PRUDYNT_T_SITE) $(PRUDYNT_T_SITE_BRANCH) | head -1 | cut -f1)
 
-PRUDYNT_T_DEPENDENCIES = libconfig thingino-live555 thingino-fonts ingenic-lib faac thingino-opus
+PRUDYNT_T_DEPENDENCIES = thingino-libconfig thingino-live555 thingino-fonts ingenic-lib faac thingino-opus
 ifeq ($(BR2_PACKAGE_PRUDYNT_T_NG),y)
-PRUDYNT_T_DEPENDENCIES += libwebsockets libschrift
+PRUDYNT_T_DEPENDENCIES += libwebsockets libschrift libaudioshim host-patchelf
 else
 PRUDYNT_T_DEPENDENCIES += thingino-freetype
 endif
@@ -24,7 +24,7 @@ PRUDYNT_CFLAGS += -DKERNEL_VERSION_4
 endif
 
 PRUDYNT_CFLAGS += \
-	-DNO_OPENSSL=1 -Os \
+	-DNO_OPENSSL=1 -Os -DBINARY_HYBRID \
 	-I$(STAGING_DIR)/usr/include \
 	-I$(STAGING_DIR)/usr/include/liveMedia \
 	-I$(STAGING_DIR)/usr/include/groupsock \
@@ -74,5 +74,13 @@ define PRUDYNT_T_INSTALL_TARGET_CMDS
 #	sed -i '/^COMMAND=/d' $(TARGET_DIR)/etc/init.d/S95prudynt; \
 #	fi
 endef
+
+# Must be patched after compilation!
+define PRUDYNT_PATCH_TARGET
+    $(HOST_DIR)/bin/patchelf --remove-needed libstdc++.so.6 \
+        $(TARGET_DIR)/usr/lib/libaudioProcess.so
+endef
+
+PRUDYNT_T_TARGET_FINALIZE_HOOKS += PRUDYNT_PATCH_TARGET
 
 $(eval $(generic-package))

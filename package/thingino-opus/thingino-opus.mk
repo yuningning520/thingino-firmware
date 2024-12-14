@@ -7,6 +7,7 @@ THINGINO_OPUS_CPE_ID_VENDOR = opus-codec
 
 THINGINO_OPUS_AUTORECONF = YES
 THINGINO_OPUS_INSTALL_STAGING = YES
+THINGINO_OPUS_INSTALL_TARGET = NO
 
 THINGINO_OPUS_CFLAGS = $(TARGET_CFLAGS) -ffunction-sections -fdata-sections
 THINGINO_OPUS_LFLAGS = $(TARGET_LFLAGS) -Wl,--gc-sections -z max-page-size=0x1000
@@ -16,6 +17,6 @@ THINGINO_OPUS_CFLAGS += -O0
 endif
 
 THINGINO_OPUS_CONF_ENV = CFLAGS="$(THINGINO_OPUS_CFLAGS)" LDFLAGS="$(THINGINO_OPUS_LDFLAGS)"
-THINGINO_OPUS_CONF_OPTS = --enable-custom-modes --enable-float-approx --disable-extra-programs
+THINGINO_OPUS_CONF_OPTS = --enable-custom-modes --enable-float-approx --disable-extra-programs --enable-static
 
 $(eval $(autotools-package))

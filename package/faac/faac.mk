@@ -7,12 +7,12 @@ FAAC_LICENSE = MPEG-4-Reference-Code, LGPL-2.1+
 FAAC_LICENSE_FILES = COPYING
 
 FAAC_INSTALL_STAGING = YES
-FAAC_INSTALL_TARGET = YES
+FAAC_INSTALL_TARGET = NO
 
 FAAC_AUTORECONF = YES
 FAAC_DEPENDENCIES += host-pkgconf host-libtool
 
-FAAC_CONF_OPTS = --prefix=/usr --enable-shared --disable-static
+FAAC_CONF_OPTS = --prefix=/usr --enable-static --disable-shared
 
 FAAC_LDFLAGS = $(TARGET_LDFLAGS) -z max-page-size=0x1000
 FAAC_CONF_ENV = PKG_CONFIG="$(PKG_CONFIG_HOST_BINARY)" LDFLAGS="$(FAAC_LDFLAGS)"
@@ -32,15 +32,11 @@ endef
 
 define FAAC_INSTALL_TARGET_CMDS
 	$(INSTALL) -m 0755 -d $(TARGET_DIR)/usr/lib
-	$(INSTALL) -m 0755 -D $(@D)/libfaac/.libs/libfaac.so.0.0.0 $(TARGET_DIR)/usr/lib/
-	ln -sf libfaac.so.0.0.0 $(TARGET_DIR)/usr/lib/libfaac.so.0
-	ln -sf libfaac.so.0.0.0 $(TARGET_DIR)/usr/lib/libfaac.so
+	$(INSTALL) -m 0755 -D $(@D)/libfaac/.libs/libfaac.a $(TARGET_DIR)/usr/lib/
 endef
 
 define FAAC_INSTALL_STAGING_CMDS
-	$(INSTALL) -m 0755 -D $(@D)/libfaac/.libs/libfaac.so.0.0.0 $(STAGING_DIR)/usr/lib/
-	ln -sf libfaac.so.0.0.0 $(STAGING_DIR)/usr/lib/libfaac.so.0
-	ln -sf libfaac.so.0.0.0 $(STAGING_DIR)/usr/lib/libfaac.so
+	$(INSTALL) -m 0755 -D $(@D)/libfaac/.libs/libfaac.a $(STAGING_DIR)/usr/lib/
 	$(INSTALL) -m 0644 -D $(@D)/include/faac.h $(STAGING_DIR)/usr/include/faac.h
 	$(INSTALL) -m 0644 -D $(@D)/include/faaccfg.h $(STAGING_DIR)/usr/include/faaccfg.h
 endef
