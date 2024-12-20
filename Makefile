@@ -92,8 +92,8 @@ OVERLAY_BIN := $(OUTPUT_DIR)/images/overlay.jffs2
 FIRMWARE_NAME_FULL = thingino-$(CAMERA).bin
 FIRMWARE_NAME_NOBOOT = thingino-$(CAMERA)-update.bin
 
-FIRMWARE_BIN_FULL := $(OUTPUT_DIR)/images/$(FIRMWARE_NAME_FULL)
-FIRMWARE_BIN_NOBOOT := $(OUTPUT_DIR)/images/$(FIRMWARE_NAME_NOBOOT)
+FIRMWARE_BIN_FULL = $(OUTPUT_DIR)/images/$(FIRMWARE_NAME_FULL)
+FIRMWARE_BIN_NOBOOT = $(OUTPUT_DIR)/images/$(FIRMWARE_NAME_NOBOOT)
 
 # file sizes
 U_BOOT_BIN_SIZE = $(shell stat -c%s $(U_BOOT_BIN))
@@ -133,13 +133,12 @@ U_BOOT_ENV_OFFSET = $(shell echo $$(($(U_BOOT_OFFSET) + $(U_BOOT_PARTITION_SIZE)
 KERNEL_OFFSET = $(shell echo $$(($(U_BOOT_ENV_OFFSET) + $(U_BOOT_ENV_PARTITION_SIZE))))
 ROOTFS_OFFSET = $(shell echo $$(($(KERNEL_OFFSET) + $(KERNEL_PARTITION_SIZE))))
 OVERLAY_OFFSET = $(shell echo $$(($(ROOTFS_OFFSET) + $(ROOTFS_PARTITION_SIZE))))
-
 # special case with no uboot nor env
 OVERLAY_OFFSET_NOBOOT = $(shell echo $$(($(KERNEL_PARTITION_SIZE) + $(ROOTFS_PARTITION_SIZE))))
 
-.PHONY: all bootstrap build build_fast clean cleanbuild create_overlay \
-	defconfig distclean fast help pack pack_full pack_update \
-	prepare_config reconfig sdk toolchain update upload_tftp upgrade_ota br-%
+.PHONY: all bootstrap build build_fast clean cleanbuild compile_config \
+	create_config create_environment distclean fast help pack sdk \
+	toolchain update upload_tftp upgrade_ota br-%
 
 all: build pack
 	$(info -------------------------------- $@)
@@ -174,6 +173,7 @@ FRAGMENTS = $(shell awk '/FRAG:/ {$$1=$$1;gsub(/^.+:\s*/,"");print}' $(MODULE_CO
 
 # Assemble config from bits and pieces
 prepare_config: buildroot/Makefile
+	$(info -------------------------------- $@)
 	# create output directory
 	$(info * make OUTPUT_DIR $(OUTPUT_DIR))
 	mkdir -p $(OUTPUT_DIR)
@@ -245,12 +245,6 @@ cleanbuild: distclean all
 distclean:
 	$(info -------------------------------- $@)
 	if [ -d "$(OUTPUT_DIR)" ]; then rm -rf $(OUTPUT_DIR); fi
-
-delete_bin_full:
-	if [ -f $(FIRMWARE_BIN_FULL) ]; then rm $(FIRMWARE_BIN_FULL); fi
-
-delete_bin_update:
-	if [ -f $(FIRMWARE_BIN_NOBOOT) ]; then rm $(FIRMWARE_BIN_NOBOOT); fi
 
 # assemble final images
 pack: $(FIRMWARE_BIN_FULL) $(FIRMWARE_BIN_NOBOOT)
@@ -349,7 +343,6 @@ $(SRC_DIR)/.keep:
 # download bootloader
 $(U_BOOT_BIN):
 	$(info -------------------------------- $@)
-	$(info U_BOOT_BIN $(U_BOOT_BIN) not found!)
 	$(WGET) -O $@ $(U_BOOT_GITHUB_URL)/u-boot-$(SOC_MODEL_LESS_Z).bin
 
 # create config partition image
@@ -404,14 +397,12 @@ $(OVERLAY_BIN): $(U_BOOT_BIN)
 
 	$(info -------------------------------- $@)
 
-
 help:
 	$(info -------------------------------- $@)
 	@echo "\n\
 	Usage:\n\
 	  make bootstrap      install system deps\n\
 	  make update         update local repo from GitHub\n\
-	  make defconfig      (re)create config file\n\
 	  make                build and pack everything\n\
 	  make build          build kernel and rootfs\n\
 	  make cleanbuild     build everything from scratch\n\
