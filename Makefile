@@ -138,6 +138,7 @@ OVERLAY_OFFSET_NOBOOT = $(shell echo $$(($(KERNEL_PARTITION_SIZE) + $(ROOTFS_PAR
 	prepare_config reconfig sdk toolchain update upload_tftp upgrade_ota br-%
 
 all: build pack
+	$(info -------------------------------- $@)
 	@$(FIGLET) "FINE"
 
 # update repo and submodules
@@ -145,17 +146,21 @@ update:
 	git pull --rebase --autostash
 	git submodule update
 
-# install prerequisites
+# install what's needed
 bootstrap:
+	$(info -------------------------------- $@)
 	$(SCRIPTS_DIR)/dep_check.sh
 
 build: defconfig
+	$(info -------------------------------- $@)
 	$(BR2_MAKE) all
 
 build_fast: defconfig
+	$(info -------------------------------- $@)
 	$(BR2_MAKE) -j$(shell nproc) all
 
 fast: build_fast pack
+	$(info -------------------------------- $@)
 	@$(FIGLET) "FINE"
 
 ### Configuration
@@ -206,28 +211,34 @@ defconfig: prepare_config
 select-device:
 	$(info -------------------> select-device)
 
-# Call configurator UI
+# call configurator
 menuconfig: $(OUTPUT_DIR)/.config
 	$(BR2_MAKE) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) menuconfig
+	$(info -------------------------------- $@)
 
 nconfig: $(OUTPUT_DIR)/.config
 	$(BR2_MAKE) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) nconfig
+	$(info -------------------------------- $@)
 
-# Permanently save changes to the defconfig
+# permanently save changes to the defconfig
 saveconfig:
+	$(info -------------------------------- $@)
 	$(BR2_MAKE) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) savedefconfig
 
 ### Files
 
 # remove target/ directory
 clean:
+	$(info -------------------------------- $@)
 	rm -rf $(OUTPUT_DIR)/target
 
 # rebuild from scratch
 cleanbuild: distclean all
+	$(info -------------------------------- $@)
 
 # remove all build files
 distclean:
+	$(info -------------------------------- $@)
 	if [ -d "$(OUTPUT_DIR)" ]; then rm -rf $(OUTPUT_DIR); fi
 
 delete_bin_full:
@@ -272,40 +283,50 @@ ifeq ($(GCC),12)
 	sed -i 's/^BR2_TOOLCHAIN_GCC_AT_LEAST_13=y/# BR2_TOOLCHAIN_GCC_AT_LEAST_13 is not set/' $(OUTPUT_DIR)/.config; \
 	sed -i 's/^BR2_TOOLCHAIN_GCC_AT_LEAST="13"/BR2_TOOLCHAIN_GCC_AT_LEAST="12"/' $(OUTPUT_DIR)/.config;
 endif
+	$(info -------------------------------- $@)
 	$(BR2_MAKE) -j$(shell nproc) sdk
 
 source: defconfig
 	$(BR2_MAKE) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) source
+	$(info -------------------------------- $@)
 
 # build toolchain
 toolchain: defconfig
+	$(info -------------------------------- $@)
 	$(BR2_MAKE) sdk
 
+# flash compiled update image to the camera
 update_ota: $(FIRMWARE_BIN_NOBOOT)
 	$(SCRIPTS_DIR)/fw_ota.sh $(FIRMWARE_BIN_NOBOOT) $(CAMERA_IP_ADDRESS)
+	$(info -------------------------------- $@)
 
-# upgrade firmware using /tmp/ directory of the camera
+# flash compiled full image to the camera
 upgrade_ota: $(FIRMWARE_BIN_FULL)
 	$(SCRIPTS_DIR)/fw_ota.sh $(FIRMWARE_BIN_FULL) $(CAMERA_IP_ADDRESS)
+	$(info -------------------------------- $@)
 
 # upload firmware to tftp server
 upload_tftp: $(FIRMWARE_BIN_FULL)
 	busybox tftp -l $(FIRMWARE_BIN_FULL) -r $(FIRMWARE_NAME_FULL) -p $(TFTP_IP_ADDRESS)
+	$(info -------------------------------- $@)
 
 ### Buildroot
 
 # delete all build/{package} and per-package/{package} files
 br-%-dirclean:
+	$(info -------------------------------- $@)
 	rm -rf $(OUTPUT_DIR)/per-package/$(subst -dirclean,,$(subst br-,,$@)) \
 		$(OUTPUT_DIR)/build/$(subst -dirclean,,$(subst br-,,$@))* \
 		$(OUTPUT_DIR)/target
 	#  \ sed -i /^$(subst -dirclean,,$(subst br-,,$@))/d $(OUTPUT_DIR)/build/packages-file-list.txt
 
 br-%: defconfig
+	$(info -------------------------------- $@)
 	$(BR2_MAKE) $(subst br-,,$@)
 
 # checkout buidroot submodule
 buildroot/Makefile:
+	$(info -------------------------------- $@)
 	git submodule init
 	git submodule update --depth 1 --recursive
 
@@ -322,27 +343,24 @@ $(SRC_DIR):
 
 # download bootloader
 $(U_BOOT_BIN):
+	$(info -------------------------------- $@)
 	$(info U_BOOT_BIN $(U_BOOT_BIN) not found!)
 	$(WGET) -O $@ $(U_BOOT_GITHUB_URL)/u-boot-$(SOC_MODEL_LESS_Z).bin
 
 # rebuild Linux kernel
 $(KERNEL_BIN):
-	$(info KERNEL_BIN:            $@)
-	$(info KERNEL_BIN_SIZE:       $(KERNEL_BIN_SIZE))
-	$(info KERNEL_PARTITION_SIZE: $(KERNEL_PARTITON_SIZE))
+	$(info -------------------------------- $@)
 	$(BR2_MAKE) linux-rebuild
 #	mv -vf $(OUTPUT_DIR)/images/uImage $@
 
 # rebuild rootfs
 $(ROOTFS_BIN):
-	$(info ROOTFS_BIN:            $@)
-	$(info ROOTFS_BIN_SIZE:       $(ROOTFS_BIN_SIZE))
-	$(info ROOTFS_PARTITION_SIZE: $(ROOTFS_PARTITION_SIZE))
+	$(info -------------------------------- $@)
 	$(BR2_MAKE) all
 
 # create .tar file of rootfs
 $(ROOTFS_TAR):
-	$(info ROOTFS_TAR:          $@)
+	$(info -------------------------------- $@)
 	$(BR2_MAKE) all
 
 $(OVERLAY_BIN): create_overlay
@@ -385,6 +403,7 @@ $(FIRMWARE_BIN_NOBOOT): $(KERNEL_BIN) $(ROOTFS_BIN) $(OVERLAY_BIN)
 	dd if=$(OVERLAY_BIN) bs=$(OVERLAY_BIN_SIZE) seek=$(OVERLAY_OFFSET_NOBOOT)B count=1 of=$@ conv=notrunc status=none; \
 	fi
 help:
+	$(info -------------------------------- $@)
 	@echo "\n\
 	Usage:\n\
 	  make bootstrap      install system deps\n\
