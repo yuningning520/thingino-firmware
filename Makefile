@@ -42,8 +42,7 @@ BR2_EXTERNAL := $(CURDIR)
 SCRIPTS_DIR := $(BR2_EXTERNAL)/scripts
 
 # make command for buildroot
-BR2_MAKE = $(MAKE) -C $(BR2_EXTERNAL)/buildroot BR2_EXTERNAL=$(BR2_EXTERNAL) O=$(OUTPUT_DIR)
-
+BR2_MAKE = $(MAKE) -C $(BR2_EXTERNAL)/buildroot BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) O=$(OUTPUT_DIR)
 # handle the board
 include $(BR2_EXTERNAL)/board.mk
 
@@ -219,17 +218,17 @@ select-device:
 
 # call configurator
 menuconfig: $(OUTPUT_DIR)/.config
-	$(BR2_MAKE) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) menuconfig
 	$(info -------------------------------- $@)
+	$(BR2_MAKE) menuconfig
 
 nconfig: $(OUTPUT_DIR)/.config
-	$(BR2_MAKE) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) nconfig
 	$(info -------------------------------- $@)
+	$(BR2_MAKE) nconfig
 
 # permanently save changes to the defconfig
 saveconfig:
 	$(info -------------------------------- $@)
-	$(BR2_MAKE) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) savedefconfig
+	$(BR2_MAKE) savedefconfig
 
 ### Files
 
@@ -288,8 +287,8 @@ sdk: defconfig
 	$(BR2_MAKE) -j$(shell nproc) sdk
 
 source: defconfig
-	$(BR2_MAKE) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) source
 	$(info -------------------------------- $@)
+	$(BR2_MAKE) source
 
 # build toolchain
 toolchain: defconfig
