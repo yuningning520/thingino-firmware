@@ -143,6 +143,7 @@ all: build pack
 
 # update repo and submodules
 update:
+	$(info -------------------------------- $@)
 	git pull --rebase --autostash
 	git submodule update
 
@@ -341,7 +342,7 @@ $(U_BOOT_BIN):
 	$(info U_BOOT_BIN $(U_BOOT_BIN) not found!)
 	$(WGET) -O $@ $(U_BOOT_GITHUB_URL)/u-boot-$(SOC_MODEL_LESS_Z).bin
 
-# rebuild Linux kernel
+# rebuild kernel
 $(KERNEL_BIN):
 	$(info -------------------------------- $@)
 	$(BR2_MAKE) linux-rebuild
@@ -401,6 +402,7 @@ help:
 	@echo "\n\
 	Usage:\n\
 	  make bootstrap      install system deps\n\
+	  make update         update local repo from GitHub\n\
 	  make defconfig      (re)create config file\n\
 	  make                build and pack everything\n\
 	  make build          build kernel and rootfs\n\
