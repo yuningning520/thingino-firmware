@@ -155,8 +155,9 @@ bootstrap:
 	$(info -------------------------------- $@)
 	$(SCRIPTS_DIR)/dep_check.sh
 
-build: defconfig
+build: $(U_BOOT_ENV_FINAL_TXT)
 	$(info -------------------------------- $@)
+	$(BR2_MAKE) defconfig
 	$(BR2_MAKE) all
 
 build_fast: defconfig
@@ -395,7 +396,11 @@ $(OVERLAY_BIN): $(U_BOOT_BIN)
 		--pad=$(OVERLAY_PARTITION_SIZE) --eraseblock=$(ALIGN_BLOCK)
        #	--pagesize=$(ALIGN_BLOCK)
 
+$(U_BOOT_ENV_FINAL_TXT): $(OUTPUT_DIR)/.config
 	$(info -------------------------------- $@)
+	if [ -f $(BR2_EXTERNAL)$(shell sed -rn "s/^U_BOOT_ENV_TXT=\"\\\$$\(\w+\)(.+)\"/\1/p" $(OUTPUT_DIR)/.config) ]; then \
+	grep -v '^#' $(BR2_EXTERNAL)$(shell sed -rn "s/^U_BOOT_ENV_TXT=\"\\\$$\(\w+\)(.+)\"/\1/p" $(OUTPUT_DIR)/.config) | tee $(U_BOOT_ENV_FINAL_TXT); fi
+	if [ -f $(BR2_EXTERNAL)/local.uenv.txt ]; then grep -v '^#' $(BR2_EXTERNAL)/local.uenv.txt | tee -a $(U_BOOT_ENV_FINAL_TXT); fi
 
 help:
 	$(info -------------------------------- $@)
