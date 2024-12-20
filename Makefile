@@ -124,7 +124,7 @@ OVERLAY_SIZE_NOBOOT = $(shell echo $$(($(FIRMWARE_NOBOOT_SIZE) - $(OVERLAY_OFFSE
 OVERLAY_MINUMUM_SIZE := $(shell echo $$(($(ALIGN_BLOCK) * 5)))
 
 # partition offsets
-U_BOOT_OFFSET = 0
+U_BOOT_OFFSET := 0
 U_BOOT_ENV_OFFSET = $(shell echo $$(($(U_BOOT_OFFSET) + $(U_BOOT_PARTITION_SIZE))))
 KERNEL_OFFSET = $(shell echo $$(($(U_BOOT_ENV_OFFSET) + $(U_BOOT_ENV_PARTITION_SIZE))))
 ROOTFS_OFFSET = $(shell echo $$(($(KERNEL_OFFSET) + $(KERNEL_PARTITION_SIZE))))
@@ -273,6 +273,7 @@ pack_update: $(FIRMWARE_BIN_NOBOOT)
 reconfig:
 	rm -rvf $(OUTPUT_DIR)/.config
 
+# rebuild a package
 rebuild-%: defconfig
 	$(BR2_MAKE) $(subst rebuild-,,$@)-dirclean $(subst rebuild-,,$@)
 
@@ -292,18 +293,18 @@ toolchain: defconfig
 
 # flash compiled update image to the camera
 update_ota: $(FIRMWARE_BIN_NOBOOT)
-	$(SCRIPTS_DIR)/fw_ota.sh $(FIRMWARE_BIN_NOBOOT) $(CAMERA_IP_ADDRESS)
 	$(info -------------------------------- $@)
+	$(SCRIPTS_DIR)/fw_ota.sh $(FIRMWARE_BIN_NOBOOT) $(CAMERA_IP_ADDRESS)
 
 # flash compiled full image to the camera
 upgrade_ota: $(FIRMWARE_BIN_FULL)
-	$(SCRIPTS_DIR)/fw_ota.sh $(FIRMWARE_BIN_FULL) $(CAMERA_IP_ADDRESS)
 	$(info -------------------------------- $@)
+	$(SCRIPTS_DIR)/fw_ota.sh $(FIRMWARE_BIN_FULL) $(CAMERA_IP_ADDRESS)
 
 # upload firmware to tftp server
 upload_tftp: $(FIRMWARE_BIN_FULL)
-	busybox tftp -l $(FIRMWARE_BIN_FULL) -r $(FIRMWARE_NAME_FULL) -p $(TFTP_IP_ADDRESS)
 	$(info -------------------------------- $@)
+	busybox tftp -l $(FIRMWARE_BIN_FULL) -r $(FIRMWARE_NAME_FULL) -p $(TFTP_IP_ADDRESS)
 
 ### Buildroot
 
@@ -359,9 +360,7 @@ $(ROOTFS_TAR):
 	$(BR2_MAKE) all
 
 $(OVERLAY_BIN): create_overlay
-	$(info OVERLAY_BIN:         $@)
-	$(info OVERLAY_BIN_SIZE:    $(OVERLAY_BIN_SIZE))
-	$(info OVERLAY_OFFSET:      $(OVERLAY_OFFSET))
+	$(info -------------------------------- $@)
 
 $(FIRMWARE_BIN_FULL): $(U_BOOT_BIN) $(KERNEL_BIN) $(ROOTFS_BIN) $(OVERLAY_BIN)
 	$(info $(shell printf "%-10s | %8s | %9s | %9s |" PARTITION SIZE OFFSET END))
