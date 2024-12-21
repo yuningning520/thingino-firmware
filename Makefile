@@ -33,7 +33,7 @@ BR2_DL_DIR ?= $(HOME)/dl
 SRC_DIR ?= $(HOME)/src
 
 # working directory
-OUTPUT_DIR ?= $(HOME)/output/$(CAMERA)
+OUTPUT_DIR ?= $(HOME)/output/$(BOARD)
 STDOUT_LOG ?= $(OUTPUT_DIR)/compilation.log
 STDERR_LOG ?= $(OUTPUT_DIR)/compilation-errors.log
 
@@ -43,11 +43,7 @@ SCRIPTS_DIR := $(BR2_EXTERNAL)/scripts
 
 # make command for buildroot
 BR2_MAKE = $(MAKE) -C $(BR2_EXTERNAL)/buildroot BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) O=$(OUTPUT_DIR)
-# handle the board
-include $(BR2_EXTERNAL)/board.mk
-
-# include device tree makefile
-include $(BR2_EXTERNAL)/external.mk
+#BR2_MAKE = $(MAKE) -C $(BR2_EXTERNAL)/buildroot BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DEFCONFIG=$(OUTPUT_DIR)/.config O=$(OUTPUT_DIR)
 
 # hardcoded variables
 WGET := wget --quiet --no-verbose --retry-connrefused --continue --timeout=5
@@ -89,8 +85,8 @@ ROOTFS_TAR := $(OUTPUT_DIR)/images/rootfs.tar
 OVERLAY_BIN := $(OUTPUT_DIR)/images/overlay.jffs2
 
 # create a full binary file suffixed with the time of the last modification to either uboot, kernel, or rootfs
-FIRMWARE_NAME_FULL = thingino-$(CAMERA).bin
-FIRMWARE_NAME_NOBOOT = thingino-$(CAMERA)-update.bin
+FIRMWARE_NAME_FULL = thingino-$(BOARD).bin
+FIRMWARE_NAME_NOBOOT = thingino-$(BOARD)-update.bin
 
 FIRMWARE_BIN_FULL = $(OUTPUT_DIR)/images/$(FIRMWARE_NAME_FULL)
 FIRMWARE_BIN_NOBOOT = $(OUTPUT_DIR)/images/$(FIRMWARE_NAME_NOBOOT)
@@ -136,6 +132,16 @@ OVERLAY_OFFSET = $(shell echo $$(($(ROOTFS_OFFSET) + $(ROOTFS_PARTITION_SIZE))))
 # special case with no uboot nor env
 OVERLAY_OFFSET_NOBOOT = $(shell echo $$(($(KERNEL_PARTITION_SIZE) + $(ROOTFS_PARTITION_SIZE))))
 
+ifeq ($(BOARD),)
+BOARD := $(shell $(SCRIPTS_DIR)/boards.sh $(BOARD))
+ifeq ($(BOARD),)
+$(error No camera config provided)
+endif
+endif
+
+include $(OUTPUT_DIR)/.config
+include $(BR2_EXTERNAL)/external.mk
+
 .PHONY: all bootstrap build build_fast clean cleanbuild compile_config \
 	create_config create_environment distclean fast help pack sdk \
 	toolchain update upload_tftp upgrade_ota br-%
@@ -160,17 +166,13 @@ build: $(U_BOOT_ENV_FINAL_TXT)
 	$(BR2_MAKE) defconfig
 	$(BR2_MAKE) all
 
-build_fast: defconfig
+build_fast:
 	$(info -------------------------------- $@)
 	$(BR2_MAKE) -j$(shell nproc) all
 
 fast: build_fast pack
 	$(info -------------------------------- $@)
 	@$(FIGLET) "FINE"
-
-### Configuration
-
-FRAGMENTS = $(shell awk '/FRAG:/ {$$1=$$1;gsub(/^.+:\s*/,"");print}' $(MODULE_CONFIG_REAL))
 
 # Assemble config from bits and pieces
 prepare_config: buildroot/Makefile
@@ -200,29 +202,12 @@ endif
 	if [ -f $(BR2_EXTERNAL)/local.mk ]; then cp -f $(BR2_EXTERNAL)/local.mk $(OUTPUT_DIR)/local.mk; fi
 	if [ ! -L $(OUTPUT_DIR)/thingino ]; then ln -s $(BR2_EXTERNAL) $(OUTPUT_DIR)/thingino; fi
 
-
-# Configure buildroot for a particular board
-defconfig: prepare_config
-	@$(FIGLET) $(CAMERA)
-	cp $(OUTPUT_DIR)/.config $(OUTPUT_DIR)/.config_original
-	$(BR2_MAKE) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) olddefconfig
-	if [ -f $(BR2_EXTERNAL)$(shell sed -rn "s/^U_BOOT_ENV_TXT=\"\\\$$\(\w+\)(.+)\"/\1/p" $(OUTPUT_DIR)/.config) ]; then \
-	grep -v '^#' $(BR2_EXTERNAL)$(shell sed -rn "s/^U_BOOT_ENV_TXT=\"\\\$$\(\w+\)(.+)\"/\1/p" $(OUTPUT_DIR)/.config) | tee $(U_BOOT_ENV_FINAL_TXT); fi
-	if [ -f $(BR2_EXTERNAL)/local.uenv.txt ]; then \
-		grep -v '^#' $(BR2_EXTERNAL)/local.uenv.txt | while read line; do \
-			grep -F -x -q "$$line" $(U_BOOT_ENV_FINAL_TXT) || echo "$$line" >> $(U_BOOT_ENV_FINAL_TXT); \
-		done; \
-	fi
-
-select-device:
-	$(info -------------------> select-device)
-
 # call configurator
-menuconfig: $(OUTPUT_DIR)/.config
+menuconfig:
 	$(info -------------------------------- $@)
 	$(BR2_MAKE) menuconfig
 
-nconfig: $(OUTPUT_DIR)/.config
+nconfig:
 	$(info -------------------------------- $@)
 	$(BR2_MAKE) nconfig
 
@@ -273,20 +258,21 @@ pack: $(FIRMWARE_BIN_FULL) $(FIRMWARE_BIN_NOBOOT)
 	sha256sum $(FIRMWARE_BIN_NOBOOT) | awk '{print $$1 "  " filename}' filename=$$(basename $(FIRMWARE_BIN_NOBOOT)) > $(FIRMWARE_BIN_NOBOOT).sha256sum
 
 # rebuild a package
-rebuild-%: defconfig
+rebuild-%:
+	$(info -------------------------------- $@)
 	$(BR2_MAKE) $(subst rebuild-,,$@)-dirclean $(subst rebuild-,,$@)
 
 # build toolchain fast
-sdk: defconfig
+sdk:
 	$(info -------------------------------- $@)
 	$(BR2_MAKE) -j$(shell nproc) sdk
 
-source: defconfig
+source:
 	$(info -------------------------------- $@)
 	$(BR2_MAKE) source
 
 # build toolchain
-toolchain: defconfig
+toolchain:
 	$(info -------------------------------- $@)
 	$(BR2_MAKE) sdk
 
@@ -315,7 +301,7 @@ br-%-dirclean:
 		$(OUTPUT_DIR)/target
 	#  \ sed -i /^$(subst -dirclean,,$(subst br-,,$@))/d $(OUTPUT_DIR)/build/packages-file-list.txt
 
-br-%: defconfig
+br-%:
 	$(info -------------------------------- $@)
 	$(BR2_MAKE) $(subst br-,,$@)
 
@@ -332,8 +318,11 @@ $(OUTPUT_DIR)/.keep:
 	touch $@
 
 # configure buildroot for a particular board
-$(OUTPUT_DIR)/.config: $(OUTPUT_DIR)/.keep $(SRC_DIR)/.keep defconfig
+$(OUTPUT_DIR)/.config: $(OUTPUT_DIR)/.keep $(SRC_DIR)/.keep
 	$(info -------------------------------- $@)
+	$(FIGLET) "$(BOARD)"
+	$(SCRIPTS_DIR)/board_config.sh "$(BOARD)"
+	cp $(OUTPUT_DIR)/.config $(OUTPUT_DIR)/.oldconfig
 
 # create source directory
 $(SRC_DIR)/.keep:
