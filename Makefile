@@ -72,11 +72,7 @@ U_BOOT_GITHUB_URL := https://github.com/gtxaspec/u-boot-ingenic/releases/downloa
 U_BOOT_ENV_FINAL_TXT = $(OUTPUT_DIR)/uenv.txt
 export U_BOOT_ENV_FINAL_TXT
 
-ifeq ($(BR2_TARGET_UBOOT_FORMAT_CUSTOM_NAME),)
-U_BOOT_BIN = $(OUTPUT_DIR)/images/u-boot-lzo-with-spl.bin
-else
 U_BOOT_BIN = $(OUTPUT_DIR)/images/$(patsubst "%",%,$(BR2_TARGET_UBOOT_FORMAT_CUSTOM_NAME))
-endif
 
 CONFIG_BIN := $(OUTPUT_DIR)/images/config.jffs2
 KERNEL_BIN := $(OUTPUT_DIR)/images/uImage
@@ -141,6 +137,8 @@ endif
 
 include $(OUTPUT_DIR)/.config
 include $(BR2_EXTERNAL)/external.mk
+
+BR2_TARGET_UBOOT_BOARDNAME = $(UBOOT_BOARDNAME)
 
 .PHONY: all bootstrap build build_fast clean cleanbuild compile_config \
 	create_config create_environment distclean fast help pack sdk \
