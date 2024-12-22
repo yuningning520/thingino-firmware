@@ -5,6 +5,8 @@ ifeq ($(__BASH_MAKE_COMPLETION__),1)
 	exit
 endif
 
+$(info -------------------------------- Checking prerequisites)
+
 ifneq ($(shell command -v gawk >/dev/null; echo $$?),0)
 $(error Please run `make bootstrap` to install prerequisites.)
 endif
@@ -13,46 +15,11 @@ ifneq ($(findstring $(empty) $(empty),$(CURDIR)),)
 $(error Current directory path "$(CURDIR)" contains spaces. Please remove spaces from the path and try again.)
 endif
 
-# Camera IP address
-# shortened to just IP for convenience of running from command line
-IP ?= 192.168.1.10
-CAMERA_IP_ADDRESS = $(IP)
+$(info -------------------------------- Setting up constants)
 
-# Device of SD card
-SDCARD_DEVICE ?= /dev/sdf
+BR2_EXTERNAL_THINGINO_PATH := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-# TFTP server IP address to upload compiled images to
-TFTP_IP_ADDRESS ?= 192.168.1.254
-
-# Buildroot downloads directory
-# can be reused from environment, just export the value:
-# export BR2_DL_DIR = /path/to/your/local/storage
-BR2_DL_DIR ?= $(HOME)/dl
-
-# directory for extracting Buildroot sources
-SRC_DIR ?= $(HOME)/src
-
-# working directory
-OUTPUT_DIR ?= $(HOME)/output/$(BOARD)
-STDOUT_LOG ?= $(OUTPUT_DIR)/compilation.log
-STDERR_LOG ?= $(OUTPUT_DIR)/compilation-errors.log
-
-# project directories
-BR2_EXTERNAL := $(CURDIR)
-SCRIPTS_DIR := $(BR2_EXTERNAL)/scripts
-
-# make command for buildroot
-BR2_MAKE = $(MAKE) -C $(BR2_EXTERNAL)/buildroot BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DEFCONFIG=$(CAMERA_CONFIG_REAL) O=$(OUTPUT_DIR)
-#BR2_MAKE = $(MAKE) -C $(BR2_EXTERNAL)/buildroot BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DEFCONFIG=$(OUTPUT_DIR)/.config O=$(OUTPUT_DIR)
-
-# hardcoded variables
-WGET := wget --quiet --no-verbose --retry-connrefused --continue --timeout=5
-
-ifeq ($(shell command -v figlet),)
-FIGLET := echo
-else
-FIGLET := $(shell command -v figlet) -t -f pagga
-endif
+CHATTY := y
 
 SIZE_32M := 33554432
 SIZE_16M := 16777216
@@ -69,8 +36,41 @@ ALIGN_BLOCK := $(SIZE_32K)
 
 U_BOOT_GITHUB_URL := https://github.com/gtxaspec/u-boot-ingenic/releases/download/latest
 
-U_BOOT_ENV_FINAL_TXT = $(OUTPUT_DIR)/uenv.txt
-export U_BOOT_ENV_FINAL_TXT
+ifeq ($(shell command -v figlet),)
+FIGLET := echo
+else
+FIGLET := $(shell command -v figlet) -t -f pagga
+endif
+
+WGET := wget --quiet --no-verbose --retry-connrefused --continue --timeout=5
+
+SCRIPTS_DIR := $(BR2_EXTERNAL_THINGINO_PATH)/scripts
+
+$(info -------------------------------- Setting up environment)
+
+# Camera IP address
+# shortened to just IP for convenience of running from command line
+IP ?= 192.168.1.10
+CAMERA_IP_ADDRESS = $(IP)
+
+# TFTP server IP address to upload compiled images to
+TFTP_IP_ADDRESS ?= 192.168.1.254
+
+# Device of SD card
+SDCARD_DEVICE ?= /dev/sdf
+
+# Buildroot downloads directory
+# can be reused from environment, just export the value:
+# export BR2_DL_DIR = /path/to/your/local/storage
+BR2_DL_DIR ?= $(BR2_EXTERNAL_THINGINO_PATH)/../downloads
+
+# directory for extracting Buildroot sources
+SRC_DIR ?= $(HOME)/src
+
+# working directory
+OUTPUT_DIR ?= $(HOME)/output/$(BOARD)
+STDOUT_LOG ?= $(OUTPUT_DIR)/compilation.log
+STDERR_LOG ?= $(OUTPUT_DIR)/compilation-errors.log
 
 U_BOOT_BIN = $(OUTPUT_DIR)/images/$(patsubst "%",%,$(BR2_TARGET_UBOOT_FORMAT_CUSTOM_NAME))
 
@@ -82,10 +82,12 @@ OVERLAY_BIN := $(OUTPUT_DIR)/images/overlay.jffs2
 
 # create a full binary file suffixed with the time of the last modification to either uboot, kernel, or rootfs
 FIRMWARE_NAME_FULL = thingino-$(BOARD).bin
-FIRMWARE_NAME_NOBOOT = thingino-$(BOARD)-update.bin
+FIRMWARE_NAME_PART = thingino-$(BOARD)-update.bin
 
 FIRMWARE_BIN_FULL = $(OUTPUT_DIR)/images/$(FIRMWARE_NAME_FULL)
-FIRMWARE_BIN_NOBOOT = $(OUTPUT_DIR)/images/$(FIRMWARE_NAME_NOBOOT)
+FIRMWARE_BIN_PART = $(OUTPUT_DIR)/images/$(FIRMWARE_NAME_PART)
+
+$(info -------------------------------- Defining sizes)
 
 # file sizes
 U_BOOT_BIN_SIZE = $(shell stat -c%s $(U_BOOT_BIN))
@@ -95,7 +97,7 @@ CONFIG_BIN_SIZE = $(shell stat -c%s $(CONFIG_BIN))
 OVERLAY_BIN_SIZE = $(shell stat -c%s $(OVERLAY_BIN))
 
 FIRMWARE_BIN_FULL_SIZE = $(shell stat -c%s $(FIRMWARE_BIN_FULL))
-FIRMWARE_BIN_NOBOOT_SIZE = $(shell stat -c%s $(FIRMWARE_BIN_NOBOOT))
+FIRMWARE_BIN_PART_SIZE = $(shell stat -c%s $(FIRMWARE_BIN_PART))
 
 U_BOOT_BIN_SIZE_ALIGNED = $(shell echo $$((($(U_BOOT_BIN_SIZE) + $(ALIGN_BLOCK) - 1) / $(ALIGN_BLOCK) * $(ALIGN_BLOCK))))
 CONFIG_BIN_SIZE_ALIGNED = $(shell echo $$((($(CONFIG_BIN_SIZE) + $(ALIGN_BLOCK) - 1) / $(ALIGN_BLOCK) * $(ALIGN_BLOCK))))
@@ -111,7 +113,7 @@ KERNEL_PARTITION_SIZE = $(KERNEL_BIN_SIZE_ALIGNED)
 ROOTFS_PARTITION_SIZE = $(ROOTFS_BIN_SIZE_ALIGNED)
 
 FIRMWARE_FULL_SIZE = $(FLASH_SIZE)
-FIRMWARE_NOBOOT_SIZE = $(shell echo $$(($(FLASH_SIZE) - $(U_BOOT_PARTITION_SIZE) - $(U_BOOT_ENV_PARTITION_SIZE))))
+FIRMWARE_PART_SIZE = $(shell echo $$(($(FLASH_SIZE) - $(U_BOOT_PARTITION_SIZE) - $(U_BOOT_ENV_PARTITION_SIZE))))
 
 # dynamic partitions
 OVERLAY_PARTITION_SIZE = $(shell echo $$(($(FLASH_SIZE) - $(OVERLAY_OFFSET))))
@@ -126,79 +128,105 @@ KERNEL_OFFSET = $(shell echo $$(($(U_BOOT_ENV_OFFSET) + $(U_BOOT_ENV_PARTITION_S
 ROOTFS_OFFSET = $(shell echo $$(($(KERNEL_OFFSET) + $(KERNEL_PARTITION_SIZE))))
 OVERLAY_OFFSET = $(shell echo $$(($(ROOTFS_OFFSET) + $(ROOTFS_PARTITION_SIZE))))
 # special case with no uboot nor env
-OVERLAY_OFFSET_NOBOOT = $(shell echo $$(($(KERNEL_PARTITION_SIZE) + $(ROOTFS_PARTITION_SIZE))))
+OVERLAY_OFFSET_PART = $(shell echo $$(($(KERNEL_PARTITION_SIZE) + $(ROOTFS_PARTITION_SIZE))))
 
-ifeq ($(BOARD),)
-BOARD := $(shell $(SCRIPTS_DIR)/boards.sh $(BOARD))
+$(info -------------------------------- Define board)
+
+CAMERA_CONFIG_REAL := $(shell $(SCRIPTS_DIR)/boards.sh $(BOARD))
+$(info CAMERA_CONFIG_REAL=$(CAMERA_CONFIG_REAL))
+
+BOARD := $(shell basename $(CAMERA_CONFIG_REAL))
+$(info BOARD=$(BOARD))
+
 ifeq ($(BOARD),)
 $(error No camera config provided)
+else
+$(info -------------------------------- Build for BOARD $(BOARD))
 endif
-endif
 
-include $(OUTPUT_DIR)/.config
-include $(BR2_EXTERNAL)/external.mk
+$(info -------------------------------- Include $(CAMERA_CONFIG_REAL))
+include $(CAMERA_CONFIG_REAL)
 
-BR2_TARGET_UBOOT_BOARDNAME = $(UBOOT_BOARDNAME)
+#$(info -------------------------------- Include $(OUTPUT_DIR)/.config)
+#include $(OUTPUT_DIR)/.config
 
-.PHONY: all bootstrap build build_fast clean cleanbuild compile_config \
-	create_config create_environment distclean fast help pack sdk \
-	toolchain update upload_tftp upgrade_ota br-%
+# BR2_DEFCONFIG ?= $(OUTPUT_DIR)/.config
+# BR2_DEFCONFIG ?= $(CAMERA_CONFIG_REAL)
 
-all: build pack
+BR2_TARGET_UBOOT_BOARDNAME := $(UBOOT_BOARDNAME)
+
+# make command for buildroot
+BR2_MAKE = $(MAKE) V=1 \
+	BR2_EXTERNAL=$(BR2_EXTERNAL_THINGINO_PATH) \
+	-C ./buildroot O=$(OUTPUT_DIR) \
+	BR2_DEFCONFIG=$(OUTPUT_DIR)/$(BOARD)_defconfig \
+    U_BOOT_ENV_FINAL_TXT=$(OUTPUT_DIR)/uenv.txt
+
+.PHONY: all bootstrap compile compile_fast menuconfig nconfig saveconfig update \
+	build clean cleanbuild compile_config \
+	help pack sdk toolchain upload_tftp upgrade_ota br-%
+
+# $(BR2_MAKE) -j$(shell nproc) all
+compile: $(OUTPUT_DIR)/.config
 	$(info -------------------------------- $@)
+	$(BR2_MAKE) all
+	$(BR2_MAKE) pack
 	@$(FIGLET) "FINE"
 
-# update repo and submodules
-update:
+$(OUTPUT_DIR)/.config: $(OUTPUT_DIR)/$(BOARD)_defconfig
 	$(info -------------------------------- $@)
-	git pull --rebase --autostash
-	git submodule update
+	$(BR2_MAKE) defconfig
+
+$(OUTPUT_DIR)/$(BOARD)_defconfig:
+	$(info -------------------------------- $@)
+	$(SCRIPTS_DIR)/board_config.sh $(BOARD)
+
+all: $(SRC_DIR)/.keep $(OUTPUT_DIR)/.keep $(OUTPUT_DIR)/$(BOARD)_defconfig $(OUTPUT_DIR)/uenv.txt compile
+	$(info -------------------------------- $@)
+	@$(FIGLET) "$(BOARD)"
+
+$(SRC_DIR)/.keep:
+	$(info -------------------------------- $@)
+	mkdir -p $(SRC_DIR)
+	touch $(SRC_DIR)/.keep
+
+$(OUTPUT_DIR)/.keep:
+	$(info -------------------------------- $@)
+	mkdir -p $(OUTPUT_DIR)
+	touch $(OUTPUT_DIR)/.keep
+
+$(OUTPUT_DIR)/uenv.txt: $(OUTPUT_DIR)/.config
+	$(info -------------------------------- $@)
+	if [ -f $(BR2_EXTERNAL_THINGINO_PATH)$(shell sed -rn "s/^U_BOOT_ENV_TXT=\"\\\$$\(\w+\)(.+)\"/\1/p" $(OUTPUT_DIR)/.config) ]; then \
+	sed -E '/^(#|\s*$$)/d' $(BR2_EXTERNAL_THINGINO_PATH)$(shell sed -rn "s/^U_BOOT_ENV_TXT=\"\\\$$\(\w+\)(.+)\"/\1/p" $(OUTPUT_DIR)/.config) | tee $(OUTPUT_DIR)/uenv.txt; fi
+	if [ -f $(BR2_EXTERNAL_THINGINO_PATH)/local.uenv.txt ]; then sed -E '/^(#|\s*$$)/d' $(BR2_EXTERNAL_THINGINO_PATH)/local.uenv.txt | tee -a $(OUTPUT_DIR)/uenv.txt; fi
+
+
+
+
+
+
+
+
+
+
+compile_fast:
+	$(info -------------------------------- $@)
+	$(BR2_MAKE) -j$(shell nproc) all
+	$(BR2_MAKE) pack
+	@$(FIGLET) "FINE"
 
 # install what's needed
 bootstrap:
 	$(info -------------------------------- $@)
 	$(SCRIPTS_DIR)/dep_check.sh
 
-build: $(U_BOOT_ENV_FINAL_TXT)
+# update repo and submodules
+update:
 	$(info -------------------------------- $@)
-	$(BR2_MAKE) defconfig
-	$(BR2_MAKE) all
-
-build_fast:
-	$(info -------------------------------- $@)
-	$(BR2_MAKE) -j$(shell nproc) all
-
-fast: build_fast pack
-	$(info -------------------------------- $@)
-	@$(FIGLET) "FINE"
-
-# Assemble config from bits and pieces
-prepare_config: buildroot/Makefile
-	$(info -------------------------------- $@)
-	# create output directory
-	$(info * make OUTPUT_DIR $(OUTPUT_DIR))
-	mkdir -p $(OUTPUT_DIR)
-	# delete older config
-	$(info * remove existing .config file)
-	rm -rvf $(OUTPUT_DIR)/.config
-	# gather fragments of a new config
-	$(info * add fragments FRAGMENTS=$(FRAGMENTS) from $(MODULE_CONFIG_REAL))
-	for i in $(FRAGMENTS); do \
-	echo "** add configs/fragments/$$i.fragment"; \
-	cat configs/fragments/$$i.fragment >>$(OUTPUT_DIR)/.config; \
-	echo >>$(OUTPUT_DIR)/.config; \
-	done
-	# add module configuration
-	cat $(MODULE_CONFIG_REAL) >>$(OUTPUT_DIR)/.config
-ifneq ($(CAMERA_CONFIG_REAL),$(MODULE_CONFIG_REAL))
-	# add camera configuration
-	cat $(CAMERA_CONFIG_REAL) >>$(OUTPUT_DIR)/.config
-endif
-	# Add local.fragment to the final config
-	if [ -f local.fragment ]; then cat local.fragment >>$(OUTPUT_DIR)/.config; fi
-	# Add local.mk to the building directory to override settings
-	if [ -f $(BR2_EXTERNAL)/local.mk ]; then cp -f $(BR2_EXTERNAL)/local.mk $(OUTPUT_DIR)/local.mk; fi
-	if [ ! -L $(OUTPUT_DIR)/thingino ]; then ln -s $(BR2_EXTERNAL) $(OUTPUT_DIR)/thingino; fi
+	git pull --rebase --autostash
+	git submodule init
+	git submodule update
 
 # call configurator
 menuconfig:
@@ -222,18 +250,15 @@ clean:
 	rm -rf $(OUTPUT_DIR)/target
 
 # rebuild from scratch
-cleanbuild: distclean all
-	$(info -------------------------------- $@)
-
-# remove all build files
-distclean:
-	$(info -------------------------------- $@)
+cleanbuild:
+	$(info -------------------------------- $@ done)
 	if [ -d "$(OUTPUT_DIR)" ]; then rm -rf $(OUTPUT_DIR); fi
+	$(BR2_MAKE) all
 
 # assemble final images
-pack: $(FIRMWARE_BIN_FULL) $(FIRMWARE_BIN_NOBOOT)
+pack: $(FIRMWARE_BIN_FULL) $(FIRMWARE_BIN_PART)
 	$(info -------------------------------- $@)
-	$(FIGLET) $(BOARD)
+	@$(FIGLET) $(BOARD)
 	$(info ALIGNMENT: $(ALIGN_BLOCK))
 	$(info  )
 	$(info $(shell printf "%-7s | %8s | %8s | %8s | %8s | %8s | %8s |" NAME OFFSET PT_SIZE CONTENT ALIGNED END LOSS))
@@ -250,10 +275,10 @@ pack: $(FIRMWARE_BIN_FULL) $(FIRMWARE_BIN_NOBOOT)
 	$(info $(shell printf "%-7s | %08X | %08X | %08X | %08X | %08X | %08X |" ROOTFS $(ROOTFS_OFFSET) $(ROOTFS_PARTITION_SIZE) $(ROOTFS_BIN_SIZE) $(ROOTFS_PARTITION_SIZE) $$(($(ROOTFS_OFFSET) + $(ROOTFS_PARTITION_SIZE))) $$(($(ROOTFS_PARTITION_SIZE) - $(ROOTFS_PARTITION_SIZE))) ))
 	$(info $(shell printf "%-7s | %08X | %08X | %08X | %08X | %08X | %08X |" OVERLAY $(OVERLAY_OFFSET) $(OVERLAY_PARTITION_SIZE) $(OVERLAY_BIN_SIZE) $(OVERLAY_BIN_SIZE_ALIGNED) $$(($(OVERLAY_OFFSET) + $(OVERLAY_BIN_SIZE_ALIGNED))) $$(($(OVERLAY_PARTITION_SIZE) - $(OVERLAY_BIN_SIZE_ALIGNED))) ))
 	$(info  )
-	if [ $(FIRMWARE_BIN_FULL_SIZE) -gt $(FIRMWARE_FULL_SIZE) ]; then $(FIGLET) "OVERSIZE"; fi
+	@if [ $(FIRMWARE_BIN_FULL_SIZE) -gt $(FIRMWARE_FULL_SIZE) ]; then $(FIGLET) "OVERSIZE"; fi
 	sha256sum $(FIRMWARE_BIN_FULL) | awk '{print $$1 "  " filename}' filename=$$(basename $(FIRMWARE_BIN_FULL)) > $(FIRMWARE_BIN_FULL).sha256sum
-	if [ $(FIRMWARE_BIN_NOBOOT_SIZE) -gt $(FIRMWARE_NOBOOT_SIZE) ]; then $(FIGLET) "OVERSIZE"; fi
-	sha256sum $(FIRMWARE_BIN_NOBOOT) | awk '{print $$1 "  " filename}' filename=$$(basename $(FIRMWARE_BIN_NOBOOT)) > $(FIRMWARE_BIN_NOBOOT).sha256sum
+	@if [ $(FIRMWARE_BIN_PART_SIZE) -gt $(FIRMWARE_PART_SIZE) ]; then $(FIGLET) "OVERSIZE"; fi
+	sha256sum $(FIRMWARE_BIN_PART) | awk '{print $$1 "  " filename}' filename=$$(basename $(FIRMWARE_BIN_PART)) > $(FIRMWARE_BIN_PART).sha256sum
 
 # rebuild a package
 rebuild-%:
@@ -275,9 +300,9 @@ toolchain:
 	$(BR2_MAKE) sdk
 
 # flash compiled update image to the camera
-update_ota: $(FIRMWARE_BIN_NOBOOT)
+update_ota: $(FIRMWARE_BIN_PART)
 	$(info -------------------------------- $@)
-	$(SCRIPTS_DIR)/fw_ota.sh $(FIRMWARE_BIN_NOBOOT) $(CAMERA_IP_ADDRESS)
+	$(SCRIPTS_DIR)/fw_ota.sh $(FIRMWARE_BIN_PART) $(CAMERA_IP_ADDRESS)
 
 # flash compiled full image to the camera
 upgrade_ota: $(FIRMWARE_BIN_FULL)
@@ -303,41 +328,24 @@ br-%:
 	$(info -------------------------------- $@)
 	$(BR2_MAKE) $(subst br-,,$@)
 
-# checkout buidroot submodule
+# checkout buildroot submodule
 buildroot/Makefile:
 	$(info -------------------------------- $@)
 	git submodule init
 	git submodule update --depth 1 --recursive
 
-# create output directory
-$(OUTPUT_DIR)/.keep:
-	$(info -------------------------------- $@)
-	mkdir -p $(OUTPUT_DIR)
-	touch $@
-
-# configure buildroot for a particular board
-$(OUTPUT_DIR)/.config: $(OUTPUT_DIR)/.keep $(SRC_DIR)/.keep
-	$(info -------------------------------- $@)
-	$(FIGLET) "$(BOARD)"
-	$(SCRIPTS_DIR)/board_config.sh "$(BOARD)"
-	cp $(OUTPUT_DIR)/.config $(OUTPUT_DIR)/.oldconfig
-
-# create source directory
-$(SRC_DIR)/.keep:
-	$(info -------------------------------- $@)
-	mkdir -p $(SRC_DIR)
-	touch $@
-
 # download bootloader
 $(U_BOOT_BIN):
-	$(info -------------------------------- $@)
 	$(WGET) -O $@ $(U_BOOT_GITHUB_URL)/u-boot-$(SOC_MODEL_LESS_Z).bin
 
 # create config partition image
 $(CONFIG_BIN):
 	$(info -------------------------------- $@)
-	$(OUTPUT_DIR)/host/sbin/mkfs.jffs2 --little-endian --squash \
-		--root=$(BR2_EXTERNAL)/overlay/upper/ --output=$(CONFIG_BIN) \
+	$(OUTPUT_DIR)/host/sbin/mkfs.jffs2 \
+		--little-endian \
+		--squash \
+		--root=$(BR2_EXTERNAL_THINGINO_PATH)/overlay/upper/ \
+		--output=$(CONFIG_BIN) \
 		--pad=$(CONFIG_PARTITION_SIZE)
 
 #$(FIRMWARE_BIN_FULL): $(U_BOOT_BIN) $(CONFIG_BIN) $(KERNEL_BIN) $(ROOTFS_BIN) $(OVERLAY_BIN)
@@ -351,12 +359,12 @@ $(FIRMWARE_BIN_FULL): $(U_BOOT_BIN) $(KERNEL_BIN) $(ROOTFS_BIN) $(OVERLAY_BIN)
 	dd if=$(ROOTFS_BIN) bs=$(ROOTFS_BIN_SIZE) seek=$(ROOTFS_OFFSET)B count=1 of=$@ conv=notrunc status=none
 	dd if=$(OVERLAY_BIN) bs=$(OVERLAY_BIN_SIZE) seek=$(OVERLAY_OFFSET)B count=1 of=$@ conv=notrunc status=none
 
-$(FIRMWARE_BIN_NOBOOT): $(KERNEL_BIN) $(ROOTFS_BIN) $(OVERLAY_BIN)
+$(FIRMWARE_BIN_PART): $(KERNEL_BIN) $(ROOTFS_BIN) $(OVERLAY_BIN)
 	$(info -------------------------------- $@)
-	dd if=/dev/zero bs=$(FIRMWARE_NOBOOT_SIZE) skip=0 count=1 status=none | tr '\000' '\377' > $@
+	dd if=/dev/zero bs=$(FIRMWARE_PART_SIZE) skip=0 count=1 status=none | tr '\000' '\377' > $@
 	dd if=$(KERNEL_BIN) bs=$(KERNEL_BIN_SIZE) seek=0 count=1 of=$@ conv=notrunc status=none
 	dd if=$(ROOTFS_BIN) bs=$(ROOTFS_BIN_SIZE) seek=$(KERNEL_PARTITION_SIZE)B count=1 of=$@ conv=notrunc status=none
-	dd if=$(OVERLAY_BIN) bs=$(OVERLAY_BIN_SIZE) seek=$(OVERLAY_OFFSET_NOBOOT)B count=1 of=$@ conv=notrunc status=none
+	dd if=$(OVERLAY_BIN) bs=$(OVERLAY_BIN_SIZE) seek=$(OVERLAY_OFFSET_PART)B count=1 of=$@ conv=notrunc status=none
 
 # rebuild kernel
 $(KERNEL_BIN):
@@ -379,16 +387,9 @@ $(OVERLAY_BIN): $(U_BOOT_BIN)
 	if [ $(OVERLAY_PARTITION_SIZE) -lt $(OVERLAY_LLIMIT) ]; then $(FIGLET) "OVERLAY IS TOO SMALL"; fi
 	if [ -f $(OVERLAY_BIN) ]; then rm $(OVERLAY_BIN); fi
 	$(OUTPUT_DIR)/host/sbin/mkfs.jffs2 --little-endian --squash \
-		--root=$(BR2_EXTERNAL)/overlay/upper/ --output=$(OVERLAY_BIN) \
+		--root=$(BR2_EXTERNAL_THINGINO_PATH)/overlay/upper/ --output=$(OVERLAY_BIN) \
 		--pad=$(OVERLAY_PARTITION_SIZE) --eraseblock=$(ALIGN_BLOCK)
        #	--pagesize=$(ALIGN_BLOCK)
-
-$(U_BOOT_ENV_FINAL_TXT): $(OUTPUT_DIR)/.config
-	$(info -------------------------------- $@)
-	if [ -f $(BR2_EXTERNAL)$(shell sed -rn "s/^U_BOOT_ENV_TXT=\"\\\$$\(\w+\)(.+)\"/\1/p" $(OUTPUT_DIR)/.config) ]; then \
-	grep -v '^#' $(BR2_EXTERNAL)$(shell sed -rn "s/^U_BOOT_ENV_TXT=\"\\\$$\(\w+\)(.+)\"/\1/p" $(OUTPUT_DIR)/.config) | tee $(U_BOOT_ENV_FINAL_TXT); fi
-	if [ -f $(BR2_EXTERNAL)/local.uenv.txt ]; then grep -v '^#' $(BR2_EXTERNAL)/local.uenv.txt | tee -a $(U_BOOT_ENV_FINAL_TXT); fi
-
 help:
 	$(info -------------------------------- $@)
 	@echo "\n\
@@ -401,7 +402,6 @@ help:
 	  make pack_full      create a full firmware image\n\
 	  make pack_update    create an update firmware image (no bootloader)\n\
 	  make clean          clean before reassembly\n\
-	  make distclean      start building from scratch\n\
 	  make rebuild-<pkg>  perform a clean package rebuild for <pkg>\n\
 	  make help           print this help\n\
 	  \n\
