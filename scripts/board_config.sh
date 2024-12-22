@@ -10,7 +10,7 @@ fi
 OUTPUT_DIR="$HOME/output/$CAMERA"
 mkdir -p "$OUTPUT_DIR"
 
-BUILD_CONFIG="$OUTPUT_DIR/.config"
+BUILD_CONFIG="$OUTPUT_DIR/${CAMERA}_defconfig"
 :> "$BUILD_CONFIG"
 
 CAMERA_CONFIG="$(find ./configs/modules ./configs/cameras ./configs/github ./configs/testing -name "$CAMERA" | head -n1 | sed 's/\.\/configs\///')"
