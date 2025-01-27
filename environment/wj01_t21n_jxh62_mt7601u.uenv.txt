@@ -1,0 +1,16 @@
+day_night_color=true
+day_night_ir850=true
+day_night_ir940=false
+day_night_ircut=true
+day_night_max=15000
+day_night_min=500
+day_night_white=false
+disable_eth=true
+enable_updates=false
+gpio_default=18O 39o 47o 49o 50i 52i 53o 63o 64i 81i 82O
+gpio_ircut=79i 80i
+gpio_button=50
+gpio_ir850=49
+gpio_led_b=82o
+gpio_mmc_cd=59
+wlandev=mt7601sta
