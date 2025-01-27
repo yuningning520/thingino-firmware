@@ -8,7 +8,6 @@ day_night_white=false
 disable_eth=true
 enable_updates=true
 gpio_default=18O 39o 47o 49o 50i 52i 53o 63o 64i 81i 82O
-gpio_ircut=79i 80i
 gpio_button=50
 gpio_ir850=49
 gpio_led_b=82o
