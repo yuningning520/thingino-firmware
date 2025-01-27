@@ -13,3 +13,5 @@ gpio_ir850=49
 gpio_led_b=82o
 gpio_mmc_cd=52
 wlandev=mt7601sta
+
+gpio_ircut=118 119
